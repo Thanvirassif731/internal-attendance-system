@@ -85,6 +85,16 @@ Visit **http://localhost:5173** in your browser.
 - **Database errors** – Verify `DATABASE_URL` points to a writable location and that `dev.db` exists.
 - **Port conflicts** – Change `PORT` in `.env` if another service uses `5000`.
 
+## Production AWS database
+
+Local development uses SQLite. The production Docker image generates a Prisma client for **MySQL**, intended for an Amazon RDS MySQL instance:
+
+```dotenv
+DATABASE_URL=mysql://<username>:<password>@<rds-endpoint>:3306/<database>
+```
+
+The deployment uses a single ECS/Fargate backend task with port `5000` exposed directly; it does not use a load balancer. Keep the RDS instance private and restrict inbound MySQL traffic (`3306`) to the ECS security group. See [architecture_documentation.md](architecture_documentation.md) for the AWS deployment steps.
+
 ---
 
 You now have the full development environment set up. Happy coding!
