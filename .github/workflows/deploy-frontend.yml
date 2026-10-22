@@ -31,6 +31,15 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v5
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
@@ -55,15 +64,6 @@ jobs:
 
           echo "Build successful!"
           ls -lah ./frontend/dist
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Verify AWS identity
-        run: aws sts get-caller-identity
 
       - name: Deploy website to S3
         run: |
