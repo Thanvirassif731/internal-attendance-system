@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { PORT as SERVER_PORT } from './config/env';
+import { CORS_ORIGIN, PORT as SERVER_PORT } from './config/env';
 import { errorHandler } from './middleware/error.middleware';
 
 // Routes
@@ -18,7 +18,7 @@ const app = express();
 // Middlewares
 app.use(
   cors({
-    origin: '*',
+    origin: CORS_ORIGIN === '*' ? true : CORS_ORIGIN.split(',').map((origin) => origin.trim()),
     credentials: true,
   })
 );

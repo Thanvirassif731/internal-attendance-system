@@ -8,7 +8,7 @@
 | **Frontend** | Vite + React (TypeScript) | UI, routing, state, API calls |
 | **Styling** | Vanilla CSS (with optional Tailwind utilities) | Modern look, dark‑mode, micro‑animations |
 | **Backend** | Node.js + Express (TypeScript) | REST API, authentication, business logic |
-| **ORM / DB** | Prisma (v5) + SQLite (`dev.db`) | Data modeling, migrations, type‑safe queries |
+| **ORM / DB** | Prisma (v5) + SQLite locally / MySQL on Amazon RDS in production | Data modeling, migrations, type‑safe queries |
 | **Auth** | JSON Web Tokens (jwt) + bcrypt | Password hashing, stateless token auth |
 | **Configuration** | dotenv (`.env`) + `src/config/env.ts` | Centralised runtime config (port, DB URL, JWT secret, etc.) |
 
@@ -33,7 +33,7 @@ enum Role {
 }
 ```
 
-- **Where credentials are stored** – The `User` table lives in the SQLite file `backend/dev.db`.  Passwords never appear in plain text; they are stored as a bcrypt hash (`passwordHash`).
+- **Where credentials are stored** – Locally, the `User` table lives in `backend/dev.db`; in production, it lives in the private MySQL RDS database. Passwords never appear in plain text; they are stored as a bcrypt hash (`passwordHash`).
 - The **JWT secret** (`JWT_SECRET`) and **expiry** (`JWT_EXPIRES_IN`) are defined in `.env` and loaded via `src/config/env.ts`.
 
 ---
@@ -47,7 +47,7 @@ enum Role {
    - The DB write is performed via the Prisma client (`prisma.user.create`).
 4. **Response** – The endpoint returns a **201 Created** with a short success message (no token is issued yet).
 
-> **Result:** The user’s credentials are now persisted securely in SQLite; the raw password never touches the database.
+> **Result:** The user’s credentials are persisted securely in the configured database (SQLite locally or MySQL on RDS in production); the raw password never touches the database.
 
 ---
 
@@ -105,7 +105,10 @@ enum Role {
 - **`.env`** (root of `backend/`)
   ```dotenv
   PORT=5000
+  # Local development:
   DATABASE_URL=file:./dev.db
+  # Production (Amazon RDS MySQL):
+  # DATABASE_URL=mysql://<username>:<password>@<rds-endpoint>:3306/<database>
   JWT_SECRET=super_secret_key_here
   JWT_EXPIRES_IN=1d
   BCRYPT_SALT_ROUNDS=10
@@ -126,7 +129,7 @@ flowchart TD
     end
     subgraph Backend
         B1[AuthController.login]
-        B1 -->|bcrypt.compare| DB[User table (SQLite)]
+        B1 -->|bcrypt.compare| DB[User table (SQLite locally / MySQL RDS in production)]
         B1 -->|jwt.sign| JWT[JWT token]
         JWT --> F2
         subgraph ProtectedRoutes
@@ -152,3 +155,118 @@ flowchart TD
 ---
 
 **That completes the architectural overview.**  Let me know if you need deeper details on any specific component (e.g., database seeding, role‑based guards, or UI design).
+
+## 10. AWS Deployment Plan
+
+The production deployment is intentionally documented as a manual AWS process. Docker Compose and Terraform are not required.
+
+### 10.1 Create the network
+
+1. Select an AWS Region.
+2. Create a VPC with DNS hostnames and DNS resolution enabled.
+3. Create a public subnet for the ECS task.
+4. Create private subnets in different Availability Zones for RDS.
+5. Attach an Internet Gateway to the VPC.
+6. Configure a route table for the public subnet with a default route through the Internet Gateway.
+
+### 10.2 Create security groups
+
+Create separate security groups with these rules:
+
+| Security group | Inbound | Outbound |
+|---|---|---|
+| ECS backend | TCP 5000 from the application users' trusted IP range | All |
+| RDS MySQL | TCP 3306 only from the ECS security group | Default |
+
+The ECS task uses a public IP because this deployment does not use a load balancer. Restrict port 5000 to the smallest practical trusted IP range, and do not make RDS publicly accessible.
+
+### 10.3 Create the RDS database
+
+1. Create an RDS MySQL instance in the private subnets.
+2. Enable storage encryption and automated backups.
+3. Set a strong admin username and password. Store them in AWS Secrets Manager rather than in source code.
+4. Record the RDS endpoint and database name.
+5. Build the production Prisma URL:
+
+```text
+mysql://<username>:<password>@<rds-endpoint>:3306/<database>
+```
+
+### 10.4 Build and publish the backend image
+
+Create an ECR repository, then from the repository root run:
+
+```powershell
+aws ecr get-login-password --region <region> |
+  docker login --username AWS --password-stdin <account-id>.dkr.ecr.<region>.amazonaws.com
+
+docker build -t attendance-backend:latest .\backend
+docker tag attendance-backend:latest <account-id>.dkr.ecr.<region>.amazonaws.com/attendance-backend:latest
+docker push <account-id>.dkr.ecr.<region>.amazonaws.com/attendance-backend:latest
+```
+
+The backend image uses the MySQL Prisma schema during its production build. Do not use `docker compose`.
+
+### 10.5 Create ECS/Fargate
+
+1. Create an ECS cluster using the Fargate launch type.
+2. Create a task execution role with permission to pull from ECR, write to CloudWatch Logs, and read the required Secrets Manager secrets.
+3. Create a CloudWatch log group.
+4. Create a task definition with:
+   - Container image: the ECR backend image.
+   - CPU: at least 0.25 vCPU.
+   - Memory: at least 512 MB.
+   - Container port: `5000`.
+   - `NODE_ENV=production`.
+   - `PORT=5000`.
+   - `DATABASE_URL` from Secrets Manager.
+   - `JWT_SECRET` from Secrets Manager.
+   - `JWT_EXPIRES_IN=7d`.
+   - `BCRYPT_SALT_ROUNDS=12`.
+   - `CORS_ORIGIN` set to the final CloudFront URL.
+5. Create an ECS service using the public subnet, enable public IP assignment, and set the task security group to allow TCP `5000` only from the trusted application users' IP range.
+6. Use the ECS task's public DNS/IP (or a DNS record that points to it) as the API origin. ECS task public IPs can change when tasks are replaced, so update the frontend configuration and DNS record after redeployments.
+
+### 10.6 Create the frontend S3 and CloudFront distribution
+
+1. Create a private S3 bucket with Block Public Access enabled.
+2. Create a CloudFront distribution using the S3 bucket as its origin.
+3. Configure CloudFront Origin Access Control (OAC), and allow only that distribution to read the bucket.
+4. Configure the default root object as `index.html`.
+5. Configure CloudFront custom error responses for 403 and 404 to return `/index.html` with status 200, so React Router routes work.
+6. Build and upload the frontend using the API URL:
+
+```powershell
+cd frontend
+npm ci
+$env:VITE_API_URL = "https://<api-domain>"
+npm run build
+aws s3 sync .\dist s3://<frontend-bucket> --delete
+aws cloudfront create-invalidation --distribution-id <distribution-id> --paths "/*"
+```
+
+`VITE_API_URL` must contain only the API origin, without the `/api` suffix. The application appends `/api` itself.
+
+### 10.7 Final configuration and verification
+
+1. Set the backend `CORS_ORIGIN` to the CloudFront URL.
+2. Restart or redeploy the ECS service so the new environment variable is loaded.
+3. Verify the API health endpoint at `https://<api-domain>/api/health`.
+4. Verify:
+   - The ECS target is healthy.
+   - The backend can connect to RDS.
+   - Login returns a JWT.
+   - Authenticated attendance, leave, task, and announcement requests work.
+   - Refreshing a deep-linked frontend route does not return an S3 404.
+   - CloudWatch logs contain no database or Prisma connection errors.
+
+Run the Prisma schema deployment from a controlled environment that can reach the private RDS instance:
+
+```powershell
+cd backend
+$env:DATABASE_URL = "postgresql://<username>:<password>@<rds-endpoint>:5432/<database>?schema=public"
+npx prisma generate
+npx prisma db push
+```
+
+For production teams, replace `db push` with committed Prisma migrations before the first release. Seed demo credentials only in non-production environments.
