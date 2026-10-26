@@ -3,7 +3,7 @@
 ## Prerequisites
 - **Node.js** (v18 or later) and **npm** (v9 or later) installed. Download from https://nodejs.org/.
 - **Git** (optional, for cloning the repository).
-- **SQLite** is used locally (no extra installation needed).
+- **MySQL** is used for both local development and production.
 
 ## 1. Clone the repository (if you haven't already)
 ```bash
@@ -27,22 +27,21 @@ npm install
 Create a `.env` file in the **backend** directory (copy from `.env.example` if present) with at least the following keys:
 ```
 PORT=5000
-DATABASE_URL=file:./dev.db   # SQLite DB file (auto‑created)
+DATABASE_URL=mysql://<user>:<password>@<host>:3306/<database>
 JWT_SECRET=your_secret_key   # replace with a strong secret
 JWT_EXPIRES_IN=1d
 BCRYPT_SALT_ROUNDS=10
 ```
-> The SQLite file `dev.db` will be created automatically on first run.
+> Run the explicit schema script `backend/sql/schema.mysql.sql` against MySQL before starting the API.
 
 ## 4. Initialise the database schema
 From the **backend** folder run:
 ```bash
-npx prisma generate   # generates Prisma client
-npx prisma db push    # applies schema to SQLite DB
+mysql --host=<host> --user=<user> --password <database> < sql/schema.mysql.sql
 ```
 Optionally seed demo data:
 ```bash
-npm run db:setup   # or the appropriate seed script if defined
+npm run db:seed    # optional; clears and recreates demo data in the configured database
 ```
 
 ## 5. Run the applications
@@ -82,12 +81,12 @@ Visit **http://localhost:5173** in your browser.
 
 ## 8. Troubleshooting
 - **`tsx` not found** – Ensure you ran `npm install` after any cleanup; the backend uses `tsx` for TypeScript execution.
-- **Database errors** – Verify `DATABASE_URL` points to a writable location and that `dev.db` exists.
+- **Database errors** – Verify the local MySQL service is running, the credentials in `DATABASE_URL` are valid, and `sql/schema.mysql.sql` has been applied.
 - **Port conflicts** – Change `PORT` in `.env` if another service uses `5000`.
 
 ## Production AWS database
 
-Local development uses SQLite. The production Docker image generates a Prisma client for **MySQL**, intended for an Amazon RDS MySQL instance:
+Local development and production use **MySQL**. Configure the database through the environment:
 
 ```dotenv
 DATABASE_URL=mysql://<username>:<password>@<rds-endpoint>:3306/<database>

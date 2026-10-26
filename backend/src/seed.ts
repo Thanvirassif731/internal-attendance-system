@@ -1,52 +1,52 @@
 import bcrypt from 'bcryptjs';
-import { prisma } from './utils/prisma';
+import { db } from './utils/mysql';
 import { getTodayDateString } from './controllers/attendance.controller';
 
-async function main() {
+async function seedData() {
   console.log('🌱 Starting database seeding...');
 
   // Clean existing data
-  await prisma.attendance.deleteMany();
-  await prisma.leaveRequest.deleteMany();
-  await prisma.announcement.deleteMany();
-  await prisma.task.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.team.deleteMany();
+  await db.attendance.deleteMany();
+  await db.leaveRequest.deleteMany();
+  await db.announcement.deleteMany();
+  await db.task.deleteMany();
+  await db.user.deleteMany();
+  await db.team.deleteMany();
 
   const hashedAdminPassword = await bcrypt.hash('admin123', 10);
   const hashedUserPassword = await bcrypt.hash('user123', 10);
 
   // 1. Create Teams
   console.log('Creating teams...');
-  const platformTeam = await prisma.team.create({
+  const platformTeam = await db.team.create({
     data: {
       name: 'Platform Team',
       description: 'AWS infrastructure migration and cloud operations',
     },
   });
 
-  const devTeam = await prisma.team.create({
+  const devTeam = await db.team.create({
     data: {
       name: 'Development Team',
       description: 'Core web portal, APIs, and client-side interfaces',
     },
   });
 
-  const qaTeam = await prisma.team.create({
+  const qaTeam = await db.team.create({
     data: {
       name: 'QA Team',
       description: 'Release regression testing and quality assurance automation',
     },
   });
 
-  const devopsTeam = await prisma.team.create({
+  const devopsTeam = await db.team.create({
     data: {
       name: 'DevOps & SRE',
       description: 'Infrastructure automation, CI/CD, and system reliability',
     },
   });
 
-  const mobileTeam = await prisma.team.create({
+  const mobileTeam = await db.team.create({
     data: {
       name: 'Mobile Engineering',
       description: 'Cross-platform mobile apps for iOS and Android',
@@ -55,7 +55,7 @@ async function main() {
 
   // 2. Create Users
   console.log('Creating users...');
-  const adminUser = await prisma.user.create({
+  const adminUser = await db.user.create({
     data: {
       name: 'Admin User',
       username: 'admin',
@@ -71,7 +71,7 @@ async function main() {
   });
 
   // Platform Team members
-  const ashfaq = await prisma.user.create({
+  const ashfaq = await db.user.create({
     data: {
       name: 'Mohamed Ashfaq',
       username: 'ashfaq',
@@ -87,7 +87,7 @@ async function main() {
     },
   });
 
-  const srikanth = await prisma.user.create({
+  const srikanth = await db.user.create({
     data: {
       name: 'Srikanth R',
       username: 'srikanth',
@@ -102,7 +102,7 @@ async function main() {
     },
   });
 
-  const karthik = await prisma.user.create({
+  const karthik = await db.user.create({
     data: {
       name: 'Karthik R',
       username: 'karthik',
@@ -117,7 +117,7 @@ async function main() {
     },
   });
 
-  const meena = await prisma.user.create({
+  const meena = await db.user.create({
     data: {
       name: 'Meena P',
       username: 'meena',
@@ -133,7 +133,7 @@ async function main() {
   });
 
   // Development Team members
-  const naveen = await prisma.user.create({
+  const naveen = await db.user.create({
     data: {
       name: 'Naveen M',
       username: 'naveen',
@@ -148,7 +148,7 @@ async function main() {
     },
   });
 
-  const priya = await prisma.user.create({
+  const priya = await db.user.create({
     data: {
       name: 'Priya S',
       username: 'priya',
@@ -164,7 +164,7 @@ async function main() {
   });
 
   // QA Team members
-  const anjali = await prisma.user.create({
+  const anjali = await db.user.create({
     data: {
       name: 'Anjali R',
       username: 'anjali',
@@ -179,7 +179,7 @@ async function main() {
     },
   });
 
-  const sanjay = await prisma.user.create({
+  const sanjay = await db.user.create({
     data: {
       name: 'Sanjay P',
       username: 'sanjay',
@@ -195,24 +195,24 @@ async function main() {
   });
 
   // Update Team Leads
-  await prisma.team.update({
+  await db.team.update({
     where: { id: platformTeam.id },
     data: { leadId: ashfaq.id },
   });
 
-  await prisma.team.update({
+  await db.team.update({
     where: { id: devTeam.id },
     data: { leadId: naveen.id },
   });
 
-  await prisma.team.update({
+  await db.team.update({
     where: { id: qaTeam.id },
     data: { leadId: anjali.id },
   });
 
   // 3. Create Tasks
   console.log('Creating tasks...');
-  await prisma.task.create({
+  await db.task.create({
     data: {
       title: 'AWS infrastructure migration',
       description: 'Move production workloads to the new cloud environment and validate the deployment checklist.',
@@ -226,7 +226,7 @@ async function main() {
     },
   });
 
-  await prisma.task.create({
+  await db.task.create({
     data: {
       title: 'Attendance portal UI',
       description: 'Build modern responsive layouts matching high-fidelity wireframes.',
@@ -240,7 +240,7 @@ async function main() {
     },
   });
 
-  await prisma.task.create({
+  await db.task.create({
     data: {
       title: 'Release regression testing',
       description: 'Complete end-to-end regression validation for Sprint release.',
@@ -254,7 +254,7 @@ async function main() {
     },
   });
 
-  await prisma.task.create({
+  await db.task.create({
     data: {
       title: 'Attendance report',
       description: 'Generate monthly attendance metrics and team summary exports.',
@@ -268,7 +268,7 @@ async function main() {
     },
   });
 
-  await prisma.task.create({
+  await db.task.create({
     data: {
       title: 'Sprint documentation',
       description: 'Document architecture components and API endpoints.',
@@ -283,7 +283,7 @@ async function main() {
     },
   });
 
-  await prisma.task.create({
+  await db.task.create({
     data: {
       title: 'CI/CD pipeline setup',
       description: 'Configure automated Github Actions builds and Docker images push.',
@@ -298,7 +298,7 @@ async function main() {
     },
   });
 
-  await prisma.task.create({
+  await db.task.create({
     data: {
       title: 'Server cost report',
       description: 'Audit cloud resource utilization and optimize reserved instances.',
@@ -312,7 +312,7 @@ async function main() {
     },
   });
 
-  await prisma.task.create({
+  await db.task.create({
     data: {
       title: 'Monitoring documentation',
       description: 'Write runbooks for on-call engineers and Prometheus alerts.',
@@ -328,7 +328,7 @@ async function main() {
 
   // 4. Create Announcements
   console.log('Creating announcements...');
-  await prisma.announcement.create({
+  await db.announcement.create({
     data: {
       title: 'Monthly attendance review',
       content: 'Please verify your attendance before Friday 5 PM to ensure monthly salary processing is uninterrupted.',
@@ -338,7 +338,7 @@ async function main() {
     },
   });
 
-  await prisma.announcement.create({
+  await db.announcement.create({
     data: {
       title: 'Sprint planning meeting',
       content: 'Sprint planning starts tomorrow at 10:00 AM on Zoom. Please make sure all backlog tickets are prioritized.',
@@ -348,7 +348,7 @@ async function main() {
     },
   });
 
-  await prisma.announcement.create({
+  await db.announcement.create({
     data: {
       title: 'Office maintenance',
       content: 'The second floor network will be unavailable after 7 PM for infrastructure switch upgrade.',
@@ -362,7 +362,7 @@ async function main() {
   console.log('Creating attendance records...');
   const today = getTodayDateString();
 
-  await prisma.attendance.createMany({
+  await db.attendance.createMany({
     data: [
       {
         userId: ashfaq.id,
@@ -432,7 +432,7 @@ async function main() {
   ];
 
   for (const item of ashfaqHistory) {
-    await prisma.attendance.create({
+    await db.attendance.create({
       data: {
         userId: ashfaq.id,
         date: item.date,
@@ -445,7 +445,7 @@ async function main() {
 
   // 6. Create Leave Requests
   console.log('Creating leave requests...');
-  await prisma.leaveRequest.create({
+  await db.leaveRequest.create({
     data: {
       userId: meena.id,
       leaveDate: daysAgo(1),
@@ -457,7 +457,7 @@ async function main() {
     },
   });
 
-  await prisma.leaveRequest.create({
+  await db.leaveRequest.create({
     data: {
       userId: priya.id,
       leaveDate: daysAgo(-3),
@@ -467,7 +467,7 @@ async function main() {
     },
   });
 
-  await prisma.leaveRequest.create({
+  await db.leaveRequest.create({
     data: {
       userId: sanjay.id,
       leaveDate: daysAgo(8),
@@ -485,11 +485,11 @@ async function main() {
   console.log('  Team member: username="ashfaq"  email="ashfaq.new@company.com" password="user123"');
 }
 
-main()
+db.$transaction(() => seedData())
   .catch((e) => {
     console.error('Error seeding database:', e);
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await db.$disconnect();
   });

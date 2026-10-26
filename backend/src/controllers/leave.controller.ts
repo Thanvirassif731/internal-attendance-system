@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { prisma } from '../utils/prisma';
+import { db } from '../utils/mysql';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 // Submit leave request (User)
@@ -9,7 +9,7 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
     const { leaveDate, reason, description } = req.body;
 
     // Check if user already submitted a request for that date
-    const existing = await prisma.leaveRequest.findFirst({
+    const existing = await db.leaveRequest.findFirst({
       where: {
         userId,
         leaveDate,
@@ -25,7 +25,7 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
-    const leave = await prisma.leaveRequest.create({
+    const leave = await db.leaveRequest.create({
       data: {
         userId,
         leaveDate,
@@ -56,7 +56,7 @@ export const getMyLeaveRequests = async (req: AuthenticatedRequest, res: Respons
   try {
     const userId = req.user?.userId!;
 
-    const leaves = await prisma.leaveRequest.findMany({
+    const leaves = await db.leaveRequest.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -86,7 +86,7 @@ export const getAdminLeaveRequests = async (req: AuthenticatedRequest, res: Resp
       where.status = status;
     }
 
-    const leaves = await prisma.leaveRequest.findMany({
+    const leaves = await db.leaveRequest.findMany({
       where,
       include: {
         user: {
@@ -133,13 +133,13 @@ export const approveLeaveRequest = async (req: AuthenticatedRequest, res: Respon
     const { id } = req.params;
     const adminId = req.user?.userId!;
 
-    const leave = await prisma.leaveRequest.findUnique({ where: { id } });
+    const leave = await db.leaveRequest.findUnique({ where: { id } });
     if (!leave) {
       res.status(404).json({ success: false, message: 'Leave request not found' });
       return;
     }
 
-    const updated = await prisma.leaveRequest.update({
+    const updated = await db.leaveRequest.update({
       where: { id },
       data: {
         status: 'APPROVED',
@@ -152,7 +152,7 @@ export const approveLeaveRequest = async (req: AuthenticatedRequest, res: Respon
     });
 
     // Automatically record or update attendance for that date as ON_LEAVE
-    await prisma.attendance.upsert({
+    await db.attendance.upsert({
       where: {
         userId_date: {
           userId: leave.userId,
@@ -190,13 +190,13 @@ export const rejectLeaveRequest = async (req: AuthenticatedRequest, res: Respons
     const { id } = req.params;
     const adminId = req.user?.userId!;
 
-    const leave = await prisma.leaveRequest.findUnique({ where: { id } });
+    const leave = await db.leaveRequest.findUnique({ where: { id } });
     if (!leave) {
       res.status(404).json({ success: false, message: 'Leave request not found' });
       return;
     }
 
-    const updated = await prisma.leaveRequest.update({
+    const updated = await db.leaveRequest.update({
       where: { id },
       data: {
         status: 'REJECTED',

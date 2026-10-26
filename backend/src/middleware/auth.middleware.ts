@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, TokenPayload } from '../utils/jwt.utils';
-import { prisma } from '../utils/prisma';
+import { db } from '../utils/mysql';
 
 export interface AuthenticatedRequest extends Request {
   user?: TokenPayload;
@@ -27,7 +27,7 @@ export const authenticateJWT = async (
     const decoded = verifyToken(token);
 
     // Verify user exists and is active in database
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { id: decoded.userId },
       select: { id: true, status: true, role: true, email: true, username: true },
     });

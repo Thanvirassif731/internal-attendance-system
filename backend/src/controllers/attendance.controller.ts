@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { prisma } from '../utils/prisma';
+import { db } from '../utils/mysql';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 // Helper to get formatted date "YYYY-MM-DD"
@@ -29,7 +29,7 @@ export const checkIn = async (req: AuthenticatedRequest, res: Response): Promise
     const timeStr = getCurrentTimeString();
 
     // Check if attendance already exists for today
-    const existing = await prisma.attendance.findUnique({
+    const existing = await db.attendance.findUnique({
       where: {
         userId_date: {
           userId,
@@ -53,7 +53,7 @@ export const checkIn = async (req: AuthenticatedRequest, res: Response): Promise
 
     let attendanceRecord;
     if (existing) {
-      attendanceRecord = await prisma.attendance.update({
+      attendanceRecord = await db.attendance.update({
         where: { id: existing.id },
         data: {
           checkInTime: timeStr,
@@ -62,7 +62,7 @@ export const checkIn = async (req: AuthenticatedRequest, res: Response): Promise
         },
       });
     } else {
-      attendanceRecord = await prisma.attendance.create({
+      attendanceRecord = await db.attendance.create({
         data: {
           userId,
           date: today,
@@ -93,7 +93,7 @@ export const checkOut = async (req: AuthenticatedRequest, res: Response): Promis
     const today = getTodayDateString();
     const timeStr = getCurrentTimeString();
 
-    const existing = await prisma.attendance.findUnique({
+    const existing = await db.attendance.findUnique({
       where: {
         userId_date: {
           userId,
@@ -118,7 +118,7 @@ export const checkOut = async (req: AuthenticatedRequest, res: Response): Promis
       return;
     }
 
-    const updated = await prisma.attendance.update({
+    const updated = await db.attendance.update({
       where: { id: existing.id },
       data: {
         checkOutTime: timeStr,
@@ -145,7 +145,7 @@ export const getMyTodayAttendance = async (req: AuthenticatedRequest, res: Respo
     const userId = req.user?.userId!;
     const today = getTodayDateString();
 
-    const attendance = await prisma.attendance.findUnique({
+    const attendance = await db.attendance.findUnique({
       where: {
         userId_date: {
           userId,
@@ -182,7 +182,7 @@ export const getMyAttendanceHistory = async (req: AuthenticatedRequest, res: Res
       };
     }
 
-    const attendances = await prisma.attendance.findMany({
+    const attendances = await db.attendance.findMany({
       where: whereClause,
       orderBy: { date: 'desc' },
     });
@@ -250,7 +250,7 @@ export const getAdminAttendance = async (req: AuthenticatedRequest, res: Respons
       };
     }
 
-    const attendances = await prisma.attendance.findMany({
+    const attendances = await db.attendance.findMany({
       where,
       include: {
         user: {
@@ -268,8 +268,8 @@ export const getAdminAttendance = async (req: AuthenticatedRequest, res: Respons
     });
 
     // Compute stats for today
-    const allUsersCount = await prisma.user.count({ where: { status: 'ACTIVE' } });
-    const todayRecords = await prisma.attendance.findMany({
+    const allUsersCount = await db.user.count({ where: { status: 'ACTIVE' } });
+    const todayRecords = await db.attendance.findMany({
       where: { date: targetDate },
     });
 

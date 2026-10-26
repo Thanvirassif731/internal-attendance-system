@@ -8,14 +8,14 @@
 | **Frontend** | Vite + React (TypeScript) | UI, routing, state, API calls |
 | **Styling** | Vanilla CSS (with optional Tailwind utilities) | Modern look, dark‑mode, micro‑animations |
 | **Backend** | Node.js + Express (TypeScript) | REST API, authentication, business logic |
-| **ORM / DB** | Prisma (v5) + SQLite locally / MySQL on Amazon RDS in production | Data modeling, migrations, type‑safe queries |
+| **ORM / DB** | mysql2/promise + MySQL | Data modeling, migrations, type‑safe queries |
 | **Auth** | JSON Web Tokens (jwt) + bcrypt | Password hashing, stateless token auth |
 | **Configuration** | dotenv (`.env`) + `src/config/env.ts` | Centralised runtime config (port, DB URL, JWT secret, etc.) |
 
 ---
 
-## 2. Data Model (Prisma)
-```prisma
+## 2. Data Model (MySQL)
+```sql
 model User {
   id            Int      @id @default(autoincrement())
   email         String   @unique
@@ -33,7 +33,7 @@ enum Role {
 }
 ```
 
-- **Where credentials are stored** – Locally, the `User` table lives in `backend/dev.db`; in production, it lives in the private MySQL RDS database. Passwords never appear in plain text; they are stored as a bcrypt hash (`passwordHash`).
+- **Where credentials are stored** – The `User` table lives in the configured MySQL database locally and in the private MySQL RDS database in production. Passwords never appear in plain text; they are stored as bcrypt hashes.
 - The **JWT secret** (`JWT_SECRET`) and **expiry** (`JWT_EXPIRES_IN`) are defined in `.env` and loaded via `src/config/env.ts`.
 
 ---
@@ -44,10 +44,10 @@ enum Role {
 3. **Backend processing**:
    - The password is hashed with `bcrypt.hash(password, config.bcryptSaltRounds)`.
    - A new `User` record is created with the hashed password.
-   - The DB write is performed via the Prisma client (`prisma.user.create`).
+   - The DB write is performed through the parameterized MySQL data-access layer.
 4. **Response** – The endpoint returns a **201 Created** with a short success message (no token is issued yet).
 
-> **Result:** The user’s credentials are persisted securely in the configured database (SQLite locally or MySQL on RDS in production); the raw password never touches the database.
+> **Result:** The user’s credentials are persisted securely in the configured MySQL database; the raw password never touches the database.
 
 ---
 
@@ -106,7 +106,7 @@ enum Role {
   ```dotenv
   PORT=5000
   # Local development:
-  DATABASE_URL=file:./dev.db
+  DATABASE_URL=mysql://<user>:<password>@<host>:3306/<database>
   # Production (Amazon RDS MySQL):
   # DATABASE_URL=mysql://<username>:<password>@<rds-endpoint>:3306/<database>
   JWT_SECRET=super_secret_key_here
@@ -129,7 +129,7 @@ flowchart TD
     end
     subgraph Backend
         B1[AuthController.login]
-        B1 -->|bcrypt.compare| DB[User table (SQLite locally / MySQL RDS in production)]
+        B1 -->|bcrypt.compare| DB[User table (MySQL)]
         B1 -->|jwt.sign| JWT[JWT token]
         JWT --> F2
         subgraph ProtectedRoutes
@@ -146,11 +146,11 @@ flowchart TD
 | Concern | File Path (backend) |
 |---------|--------------------|
 | Config & env vars | `src/config/env.ts` |
-| Prisma client instance | `dist/utils/prisma.js` (generated) |
+| MySQL connection pool | `src/utils/mysql.ts` |
 | JWT utilities | `src/utils/jwt.utils.ts` |
 | Auth controller (register/login) | `src/controllers/auth.controller.ts` |
 | Auth middleware | `src/middleware/auth.middleware.ts` |
-| User model (Prisma) | `prisma/schema.prisma` |
+| Database schema | `sql/schema.mysql.sql` |
 
 ---
 
@@ -186,7 +186,7 @@ The ECS task uses a public IP because this deployment does not use a load balanc
 2. Enable storage encryption and automated backups.
 3. Set a strong admin username and password. Store them in AWS Secrets Manager rather than in source code.
 4. Record the RDS endpoint and database name.
-5. Build the production Prisma URL:
+5. Build the production MySQL URL:
 
 ```text
 mysql://<username>:<password>@<rds-endpoint>:3306/<database>
@@ -205,7 +205,7 @@ docker tag attendance-backend:latest <account-id>.dkr.ecr.<region>.amazonaws.com
 docker push <account-id>.dkr.ecr.<region>.amazonaws.com/attendance-backend:latest
 ```
 
-The backend image uses the MySQL Prisma schema during its production build. Do not use `docker compose`.
+The backend image uses the direct MySQL data-access layer during its production build. Do not use `docker compose`.
 
 ### 10.5 Create ECS/Fargate
 
@@ -258,15 +258,14 @@ aws cloudfront create-invalidation --distribution-id <distribution-id> --paths "
    - Login returns a JWT.
    - Authenticated attendance, leave, task, and announcement requests work.
    - Refreshing a deep-linked frontend route does not return an S3 404.
-   - CloudWatch logs contain no database or Prisma connection errors.
+   - CloudWatch logs contain no database connection errors.
 
-Run the Prisma schema deployment from a controlled environment that can reach the private RDS instance:
+Run the MySQL schema script from a controlled environment that can reach the private RDS instance:
 
 ```powershell
 cd backend
 $env:DATABASE_URL = "postgresql://<username>:<password>@<rds-endpoint>:5432/<database>?schema=public"
-npx prisma generate
-npx prisma db push
+mysql --host=<host> --user=<user> --password <database> < sql/schema.mysql.sql
 ```
 
-For production teams, replace `db push` with committed Prisma migrations before the first release. Seed demo credentials only in non-production environments.
+Keep schema changes in reviewed SQL scripts before each production release. Seed demo credentials only in non-production environments.

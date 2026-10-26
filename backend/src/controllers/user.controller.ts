@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { prisma } from '../utils/prisma';
+import { db } from '../utils/mysql';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 export const createUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -8,7 +8,7 @@ export const createUser = async (req: AuthenticatedRequest, res: Response): Prom
     const { name, username, email, password, role, teamId, designation, rollNumber, status } = req.body;
 
     // Check duplicate username or email
-    const existing = await prisma.user.findFirst({
+    const existing = await db.user.findFirst({
       where: {
         OR: [{ username }, { email }, ...(rollNumber ? [{ rollNumber }] : [])],
       },
@@ -31,7 +31,7 @@ export const createUser = async (req: AuthenticatedRequest, res: Response): Prom
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = await prisma.user.create({
+    const newUser = await db.user.create({
       data: {
         name,
         username,
@@ -90,7 +90,7 @@ export const getAllUsers = async (req: AuthenticatedRequest, res: Response): Pro
       where.status = status;
     }
 
-    const users = await prisma.user.findMany({
+    const users = await db.user.findMany({
       where,
       include: {
         team: true,
@@ -124,7 +124,7 @@ export const getUserById = async (req: AuthenticatedRequest, res: Response): Pro
   try {
     const { id } = req.params;
 
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { id },
       include: {
         team: true,
@@ -165,21 +165,21 @@ export const updateUser = async (req: AuthenticatedRequest, res: Response): Prom
     const { id } = req.params;
     const { name, email, role, status, teamId, designation, rollNumber } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { id } });
+    const user = await db.user.findUnique({ where: { id } });
     if (!user) {
       res.status(404).json({ success: false, message: 'User not found' });
       return;
     }
 
     if (email && email !== user.email) {
-      const existing = await prisma.user.findUnique({ where: { email } });
+      const existing = await db.user.findUnique({ where: { email } });
       if (existing) {
         res.status(400).json({ success: false, message: 'Email already exists' });
         return;
       }
     }
 
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await db.user.update({
       where: { id },
       data: {
         ...(name && { name }),
@@ -211,7 +211,7 @@ export const updateUser = async (req: AuthenticatedRequest, res: Response): Prom
 export const toggleUserStatus = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const user = await prisma.user.findUnique({ where: { id } });
+    const user = await db.user.findUnique({ where: { id } });
 
     if (!user) {
       res.status(404).json({ success: false, message: 'User not found' });
@@ -220,7 +220,7 @@ export const toggleUserStatus = async (req: AuthenticatedRequest, res: Response)
 
     const newStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
 
-    const updated = await prisma.user.update({
+    const updated = await db.user.update({
       where: { id },
       data: { status: newStatus },
       select: { id: true, name: true, email: true, status: true },
@@ -244,7 +244,7 @@ export const resetUserPassword = async (req: AuthenticatedRequest, res: Response
     const { id } = req.params;
     const { newPassword } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { id } });
+    const user = await db.user.findUnique({ where: { id } });
     if (!user) {
       res.status(404).json({ success: false, message: 'User not found' });
       return;
@@ -252,7 +252,7 @@ export const resetUserPassword = async (req: AuthenticatedRequest, res: Response
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    await prisma.user.update({
+    await db.user.update({
       where: { id },
       data: { password: hashedPassword },
     });
@@ -278,13 +278,13 @@ export const deleteUser = async (req: AuthenticatedRequest, res: Response): Prom
       return;
     }
 
-    const user = await prisma.user.findUnique({ where: { id } });
+    const user = await db.user.findUnique({ where: { id } });
     if (!user) {
       res.status(404).json({ success: false, message: 'User not found' });
       return;
     }
 
-    await prisma.user.delete({ where: { id } });
+    await db.user.delete({ where: { id } });
 
     res.json({
       success: true,

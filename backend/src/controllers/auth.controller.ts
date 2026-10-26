@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { prisma } from '../utils/prisma';
+import { db } from '../utils/mysql';
 import { signToken } from '../utils/jwt.utils';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
@@ -10,7 +10,7 @@ export const login = async (req: AuthenticatedRequest, res: Response): Promise<v
     const identifier = username ?? email;
 
     // Search by username or email (primary identifier)
-    const user = await prisma.user.findFirst({
+    const user = await db.user.findFirst({
       where: {
         OR: [
           { username: identifier },
@@ -48,7 +48,7 @@ export const login = async (req: AuthenticatedRequest, res: Response): Promise<v
     }
 
     // Update last login
-    await prisma.user.update({
+    await db.user.update({
       where: { id: user.id },
       data: { lastLogin: new Date() },
     });
@@ -83,7 +83,7 @@ export const getMe = async (req: AuthenticatedRequest, res: Response): Promise<v
       return;
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { id: req.user.userId },
       include: {
         team: true,
@@ -122,7 +122,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response): P
     if (name) updateData.name = name;
     if (email) {
       // Check if email is already taken by another user
-      const existing = await prisma.user.findFirst({
+      const existing = await db.user.findFirst({
         where: { email, NOT: { id: req.user.userId } },
       });
       if (existing) {
@@ -135,7 +135,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response): P
       updateData.password = await bcrypt.hash(password, 10);
     }
 
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await db.user.update({
       where: { id: req.user.userId },
       data: updateData,
       include: { team: true },

@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { prisma } from '../utils/prisma';
+import { db } from '../utils/mysql';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { getTodayDateString } from './attendance.controller';
 
@@ -16,16 +16,16 @@ export const getAdminDashboardStats = async (_req: AuthenticatedRequest, res: Re
       latestAnnouncements,
       pendingLeaves,
     ] = await Promise.all([
-      prisma.user.count({ where: { status: 'ACTIVE' } }),
-      prisma.team.count(),
-      prisma.attendance.findMany({ where: { date: today } }),
-      prisma.task.findMany({
+      db.user.count({ where: { status: 'ACTIVE' } }),
+      db.team.count(),
+      db.attendance.findMany({ where: { date: today } }),
+      db.task.findMany({
         include: {
           team: { select: { id: true, name: true } },
           user: { select: { id: true, name: true } },
         },
       }),
-      prisma.team.findMany({
+      db.team.findMany({
         take: 5,
         include: {
           lead: { select: { id: true, name: true } },
@@ -33,11 +33,11 @@ export const getAdminDashboardStats = async (_req: AuthenticatedRequest, res: Re
           tasks: { select: { progress: true } },
         },
       }),
-      prisma.announcement.findMany({
+      db.announcement.findMany({
         take: 4,
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.leaveRequest.count({ where: { status: 'PENDING' } }),
+      db.leaveRequest.count({ where: { status: 'PENDING' } }),
     ]);
 
     const presentToday = todayAttendances.filter((a) => a.status === 'PRESENT').length;
@@ -60,13 +60,13 @@ export const getAdminDashboardStats = async (_req: AuthenticatedRequest, res: Re
     const teamsOverview = teams.map((team) => {
       const avg =
         team.tasks.length > 0
-          ? Math.round(team.tasks.reduce((acc, t) => acc + t.progress, 0) / team.tasks.length)
+          ? Math.round(team.tasks.reduce((acc: number, t: any) => acc + t.progress, 0) / team.tasks.length)
           : 0;
       return {
         id: team.id,
         code: team.name
           .split(' ')
-          .map((n) => n[0])
+          .map((n: any) => n[0])
           .join('')
           .slice(0, 2)
           .toUpperCase(),
@@ -118,24 +118,24 @@ export const getUserDashboardStats = async (req: AuthenticatedRequest, res: Resp
     const today = getTodayDateString();
 
     const [userTasks, todayAttendance, latestAnnouncements, myLeaves, attendanceHistory] = await Promise.all([
-      prisma.task.findMany({
+      db.task.findMany({
         where: { userId },
         include: { team: true },
         orderBy: { dueDate: 'asc' },
       }),
-      prisma.attendance.findUnique({
+      db.attendance.findUnique({
         where: { userId_date: { userId, date: today } },
       }),
-      prisma.announcement.findMany({
+      db.announcement.findMany({
         take: 3,
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.leaveRequest.findMany({
+      db.leaveRequest.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
         take: 3,
       }),
-      prisma.attendance.findMany({
+      db.attendance.findMany({
         where: { userId },
         take: 30,
       }),
