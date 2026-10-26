@@ -1,4 +1,4 @@
-name: Deploy Attendance Frontend to S3 and CloudFront
+name: Deploy Attendance Frontend to S3
 
 on:
   push:
@@ -17,7 +17,6 @@ concurrency:
 env:
   AWS_REGION: ${{ vars.AWS_REGION || secrets.AWS_REGION }}
   S3_BUCKET: ${{ vars.S3_BUCKET_NAME || secrets.S3_BUCKET_NAME }}
-  CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID || secrets.CLOUDFRONT_DISTRIBUTION_ID }}
   AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN || secrets.AWS_ROLE_ARN }}
 
 jobs:
@@ -85,12 +84,6 @@ jobs:
       - name: Deploy frontend to S3
         run: |
           aws s3 sync ./frontend/dist/ "s3://${S3_BUCKET}/" --delete
-
-      - name: Invalidate CloudFront cache
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
-            --paths "/*"
 
       - name: Deployment completed
         run: |
