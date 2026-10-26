@@ -54,6 +54,17 @@ jobs:
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
 
+      - name: Verify API URL in build
+        run: |
+          if grep -R -F -q "${VITE_API_URL}" ./frontend/dist/assets/*.js; then
+            echo "API URL successfully embedded in frontend build."
+          else
+            echo "::error::Expected API URL was not found in the frontend build."
+            exit 1
+          fi
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+
       - name: Verify build output
         run: |
           if [ ! -f "./frontend/dist/index.html" ]; then
