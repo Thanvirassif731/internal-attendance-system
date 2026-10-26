@@ -56,10 +56,17 @@ jobs:
 
       - name: Verify API URL in build
         run: |
-          if grep -R -F -q "${VITE_API_URL}" ./frontend/dist/assets/*.js; then
-            echo "API URL successfully embedded in frontend build."
+          echo "Checking frontend API URL..."
+
+          if [ -z "$VITE_API_URL" ]; then
+            echo "::error::VITE_API_URL is empty or not configured."
+            exit 1
+          fi
+
+          if grep -R -F -q "$VITE_API_URL" ./frontend/dist/assets/*.js; then
+            echo "Correct API URL found in build."
           else
-            echo "::error::Expected API URL was not found in the frontend build."
+            echo "::error::API URL not found in build."
             exit 1
           fi
         env:
