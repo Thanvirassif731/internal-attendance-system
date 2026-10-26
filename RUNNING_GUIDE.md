@@ -1,11 +1,11 @@
 # How to Run the Internal Attendance System (KITE) after Cloning
 
-> This guide assumes you have just cloned the repository to your machine. No other files (e.g., `dev.db`) need to be copied.
+> This guide assumes you have just cloned the repository to your machine and have access to a local MySQL server.
 
 ## 1️⃣ Prerequisites
 - **Node.js** (v18+) with **npm** (v9+). Install from https://nodejs.org/.
 - **Git** (optional, only for cloning).
-- **SQLite** is used as the local database – no extra installation required because the Node `sqlite3` driver handles it.
+- **MySQL** 8 or later, running locally on port `3306`.
 
 ## 2️⃣ Clone the repository
 ```bash
@@ -33,22 +33,21 @@ cp .env.example .env   # if .env.example exists
 Edit the file so it contains at least the following lines (you may change the secret values):
 ```
 PORT=5000
-DATABASE_URL=file:./dev.db   # SQLite file that will be created automatically
+DATABASE_URL=mysql://<user>:<password>@<host>:3306/<database>
 JWT_SECRET=your_secret_key   # replace with a strong secret
 JWT_EXPIRES_IN=1d
 BCRYPT_SALT_ROUNDS=10
 ```
-> **Important:** `dev.db` will be generated inside `backend/` on the first run; you do **not** need to commit or copy it.
+> Keep the local database separate from the production database.
 
-## 5️⃣ Initialise the SQLite database schema (only the first time or after deleting `dev.db`)
+## 5️⃣ Initialise the MySQL database schema
 ```bash
 cd backend
-npx prisma generate   # generates the Prisma client
-npx prisma db push    # creates/updates the SQLite file based on schema.prisma
+mysql --host=<host> --user=<user> --password <database> < sql/schema.mysql.sql
 ```
 Optionally seed demo data (if a seed script is defined):
 ```bash
-npm run db:setup   # or the appropriate seed command
+npm run db:seed    # optional; clears and recreates demo data in the configured database
 ```
 
 ## 6️⃣ Run the two servers (open two terminal windows/panes)
@@ -77,7 +76,7 @@ Use these to explore the dashboards.
 
 ## 9️⃣ Common commands & troubleshooting
 - **Stop a server** – press `Ctrl + C` in its terminal.
-- **Re‑create the database** – delete `backend/dev.db` then repeat step 5.
+- **Database errors** – verify the MySQL service, credentials, database name, and schema setup command.
 - **Port conflict** – change `PORT` in `.env` if something else uses `5000`.
 - **`tsx` not found** – ensure you ran `npm install` after any cleanup; the backend uses `tsx` to run TypeScript.
 

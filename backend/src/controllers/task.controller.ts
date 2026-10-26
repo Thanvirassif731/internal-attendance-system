@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { prisma } from '../utils/prisma';
+import { db } from '../utils/mysql';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 // Regular user: Get only their own tasks
@@ -25,7 +25,7 @@ export const getUserTasks = async (req: AuthenticatedRequest, res: Response): Pr
       ];
     }
 
-    const tasks = await prisma.task.findMany({
+    const tasks = await db.task.findMany({
       where,
       include: {
         team: { select: { id: true, name: true } },
@@ -77,7 +77,7 @@ export const getAdminTasks = async (req: AuthenticatedRequest, res: Response): P
       ];
     }
 
-    const tasks = await prisma.task.findMany({
+    const tasks = await db.task.findMany({
       where,
       include: {
         user: { select: { id: true, name: true, email: true, rollNumber: true, designation: true } },
@@ -120,7 +120,7 @@ export const getTaskById = async (req: AuthenticatedRequest, res: Response): Pro
     const userId = req.user?.userId;
     const isAdmin = req.user?.role === 'ADMIN';
 
-    const task = await prisma.task.findUnique({
+    const task = await db.task.findUnique({
       where: { id },
       include: {
         user: { select: { id: true, name: true, email: true, designation: true } },
@@ -166,14 +166,14 @@ export const createTask = async (req: AuthenticatedRequest, res: Response): Prom
     const targetUserId = isAdmin && userId ? userId : currentUserId;
 
     // Check if target user exists and get their team if teamId not passed
-    const targetUser = await prisma.user.findUnique({
+    const targetUser = await db.user.findUnique({
       where: { id: targetUserId },
       select: { teamId: true },
     });
 
     const assignedTeamId = teamId !== undefined ? teamId : targetUser?.teamId;
 
-    const task = await prisma.task.create({
+    const task = await db.task.create({
       data: {
         title,
         description: description || null,
@@ -211,7 +211,7 @@ export const updateTask = async (req: AuthenticatedRequest, res: Response): Prom
     const userId = req.user?.userId!;
     const isAdmin = req.user?.role === 'ADMIN';
 
-    const existingTask = await prisma.task.findUnique({ where: { id } });
+    const existingTask = await db.task.findUnique({ where: { id } });
 
     if (!existingTask) {
       res.status(404).json({ success: false, message: 'Task not found' });
@@ -236,7 +236,7 @@ export const updateTask = async (req: AuthenticatedRequest, res: Response): Prom
         ? null
         : existingTask.completedAt;
 
-    const updatedTask = await prisma.task.update({
+    const updatedTask = await db.task.update({
       where: { id },
       data: {
         ...(title && { title }),
@@ -276,7 +276,7 @@ export const updateTaskStatus = async (req: AuthenticatedRequest, res: Response)
     const userId = req.user?.userId!;
     const isAdmin = req.user?.role === 'ADMIN';
 
-    const existing = await prisma.task.findUnique({ where: { id } });
+    const existing = await db.task.findUnique({ where: { id } });
 
     if (!existing) {
       res.status(404).json({ success: false, message: 'Task not found' });
@@ -294,7 +294,7 @@ export const updateTaskStatus = async (req: AuthenticatedRequest, res: Response)
     const newProgress = progress !== undefined ? progress : status === 'COMPLETED' ? 100 : existing.progress;
     const completedAt = status === 'COMPLETED' ? new Date() : null;
 
-    const updated = await prisma.task.update({
+    const updated = await db.task.update({
       where: { id },
       data: {
         ...(status && { status }),
@@ -323,7 +323,7 @@ export const deleteTask = async (req: AuthenticatedRequest, res: Response): Prom
     const userId = req.user?.userId!;
     const isAdmin = req.user?.role === 'ADMIN';
 
-    const existing = await prisma.task.findUnique({ where: { id } });
+    const existing = await db.task.findUnique({ where: { id } });
 
     if (!existing) {
       res.status(404).json({ success: false, message: 'Task not found' });
@@ -338,7 +338,7 @@ export const deleteTask = async (req: AuthenticatedRequest, res: Response): Prom
       return;
     }
 
-    await prisma.task.delete({ where: { id } });
+    await db.task.delete({ where: { id } });
 
     res.json({
       success: true,

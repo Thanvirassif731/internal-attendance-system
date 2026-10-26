@@ -1,11 +1,11 @@
 import { Response } from 'express';
-import { prisma } from '../utils/prisma';
+import { db } from '../utils/mysql';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 // Both Admin and Users can fetch all announcements
 export const getAllAnnouncements = async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const announcements = await prisma.announcement.findMany({
+    const announcements = await db.announcement.findMany({
       include: {
         author: {
           select: { id: true, name: true, role: true },
@@ -31,7 +31,7 @@ export const getAnnouncementById = async (req: AuthenticatedRequest, res: Respon
   try {
     const { id } = req.params;
 
-    const announcement = await prisma.announcement.findUnique({
+    const announcement = await db.announcement.findUnique({
       where: { id },
       include: {
         author: {
@@ -63,7 +63,7 @@ export const createAnnouncement = async (req: AuthenticatedRequest, res: Respons
     const { title, content, priority, expiryDate, attachment } = req.body;
     const authorId = req.user?.userId!;
 
-    const announcement = await prisma.announcement.create({
+    const announcement = await db.announcement.create({
       data: {
         title,
         content,
@@ -98,13 +98,13 @@ export const updateAnnouncement = async (req: AuthenticatedRequest, res: Respons
     const { id } = req.params;
     const { title, content, priority, expiryDate } = req.body;
 
-    const existing = await prisma.announcement.findUnique({ where: { id } });
+    const existing = await db.announcement.findUnique({ where: { id } });
     if (!existing) {
       res.status(404).json({ success: false, message: 'Announcement not found' });
       return;
     }
 
-    const updated = await prisma.announcement.update({
+    const updated = await db.announcement.update({
       where: { id },
       data: {
         ...(title && { title }),
@@ -136,14 +136,14 @@ export const repostAnnouncement = async (req: AuthenticatedRequest, res: Respons
     const { id } = req.params;
     const authorId = req.user?.userId!;
 
-    const existing = await prisma.announcement.findUnique({ where: { id } });
+    const existing = await db.announcement.findUnique({ where: { id } });
     if (!existing) {
       res.status(404).json({ success: false, message: 'Announcement to repost not found' });
       return;
     }
 
     // Create a new announcement record with original content, updated date, and reposted marker
-    const reposted = await prisma.announcement.create({
+    const reposted = await db.announcement.create({
       data: {
         title: existing.title,
         content: existing.content,
@@ -177,13 +177,13 @@ export const deleteAnnouncement = async (req: AuthenticatedRequest, res: Respons
   try {
     const { id } = req.params;
 
-    const existing = await prisma.announcement.findUnique({ where: { id } });
+    const existing = await db.announcement.findUnique({ where: { id } });
     if (!existing) {
       res.status(404).json({ success: false, message: 'Announcement not found' });
       return;
     }
 
-    await prisma.announcement.delete({ where: { id } });
+    await db.announcement.delete({ where: { id } });
 
     res.json({
       success: true,

@@ -1,10 +1,10 @@
 import { Response } from 'express';
-import { prisma } from '../utils/prisma';
+import { db } from '../utils/mysql';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 export const getAllTeams = async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const teams = await prisma.team.findMany({
+    const teams = await db.team.findMany({
       include: {
         lead: {
           select: { id: true, name: true, email: true, designation: true },
@@ -37,11 +37,11 @@ export const getAllTeams = async (_req: AuthenticatedRequest, res: Response): Pr
       const avgProgress =
         totalTasks > 0
           ? Math.round(
-              team.tasks.reduce((sum, task) => sum + task.progress, 0) / totalTasks
+              team.tasks.reduce((sum: number, task: any) => sum + task.progress, 0) / totalTasks
             )
           : 0;
 
-      const currentTask = team.tasks.find((t) => t.status !== 'COMPLETED') || team.tasks[0] || null;
+      const currentTask = team.tasks.find((t: any) => t.status !== 'COMPLETED') || team.tasks[0] || null;
 
       return {
         id: team.id,
@@ -72,7 +72,7 @@ export const getTeamById = async (req: AuthenticatedRequest, res: Response): Pro
   try {
     const { id } = req.params;
 
-    const team = await prisma.team.findUnique({
+    const team = await db.team.findUnique({
       where: { id },
       include: {
         lead: {
@@ -113,12 +113,12 @@ export const getTeamById = async (req: AuthenticatedRequest, res: Response): Pro
     const avgProgress =
       totalTasks > 0
         ? Math.round(
-            team.tasks.reduce((sum, task) => sum + task.progress, 0) / totalTasks
+            team.tasks.reduce((sum: number, task: any) => sum + task.progress, 0) / totalTasks
           )
         : 0;
 
     const currentTask =
-      team.tasks.find((t) => t.status !== 'COMPLETED') || team.tasks[0] || null;
+      team.tasks.find((t: any) => t.status !== 'COMPLETED') || team.tasks[0] || null;
 
     res.json({
       success: true,
@@ -140,13 +140,13 @@ export const createTeam = async (req: AuthenticatedRequest, res: Response): Prom
   try {
     const { name, description, leadId } = req.body;
 
-    const existing = await prisma.team.findUnique({ where: { name } });
+    const existing = await db.team.findUnique({ where: { name } });
     if (existing) {
       res.status(400).json({ success: false, message: 'Team name already exists' });
       return;
     }
 
-    const newTeam = await prisma.team.create({
+    const newTeam = await db.team.create({
       data: {
         name,
         description: description || null,
@@ -175,13 +175,13 @@ export const updateTeam = async (req: AuthenticatedRequest, res: Response): Prom
     const { id } = req.params;
     const { name, description, leadId } = req.body;
 
-    const team = await prisma.team.findUnique({ where: { id } });
+    const team = await db.team.findUnique({ where: { id } });
     if (!team) {
       res.status(404).json({ success: false, message: 'Team not found' });
       return;
     }
 
-    const updated = await prisma.team.update({
+    const updated = await db.team.update({
       where: { id },
       data: {
         ...(name && { name }),
@@ -210,13 +210,13 @@ export const deleteTeam = async (req: AuthenticatedRequest, res: Response): Prom
   try {
     const { id } = req.params;
 
-    const team = await prisma.team.findUnique({ where: { id } });
+    const team = await db.team.findUnique({ where: { id } });
     if (!team) {
       res.status(404).json({ success: false, message: 'Team not found' });
       return;
     }
 
-    await prisma.team.delete({ where: { id } });
+    await db.team.delete({ where: { id } });
 
     res.json({
       success: true,
